@@ -133,8 +133,8 @@ void detect_virus(char *buffer, unsigned int size, struct link *virus_link){
 }
 
 
-void detect_all_viruses(struct link* virus_list){
-    FILE *suspected_file = get_file();
+void detect_all_viruses(struct link* virus_list, char * fileName){
+    FILE *suspected_file = fopen(fileName, "r");
     int min_size = 10000;
     char buffer[min_size];
     int bytes_read = fread(buffer, 1, min_size, suspected_file);
@@ -145,16 +145,28 @@ void detect_all_viruses(struct link* virus_list){
         detect_virus(buffer, min_size, virus_list);
         virus_list = virus_list->nextVirus;
     }
+    fclose(suspected_file);
+}
+
+void kill_virus(char *fileName, int signitureOffset, int signitureSize){
+    FILE* infected_file = fopen(fileName,"r+b");
+    if (fseek(infected_file, signitureOffset, SEEK_SET) == 0){
+        char nop[signitureSize];
+        for (int i = 0; i < signitureSize; ++i) {
+            nop[i] = 0x90;
+        }
+        fwrite(nop, 1, signitureSize, infected_file);
+    }
+    fclose(infected_file);
 }
 
 
 
-int main(){
-
+int main(int argc, char** argv){
     char* virus_funcs[] = { "Load signatures",
                                "Print signatures",
                                "Detect viruses",
-//                               {"Fix file", &decrypt},
+                               "Fix file",
                                "Quit"
                                };
     int array_len =(*(&virus_funcs + 1) - virus_funcs);
@@ -183,7 +195,16 @@ int main(){
                         break;
 
                     case 3:
-                        detect_all_viruses(virus_list);
+                        detect_all_viruses(virus_list, argv[1]);
+                        break;
+
+                    case 4:
+                        printf("Insert virus_offset virus_size\n");
+                        char buffer[10];
+                        fgets(buffer, 10, stdin);
+                        int offset, virus_size;
+                        sscanf(buffer, "%d %d", &offset, &virus_size);
+                        kill_virus(argv[1], offset, virus_size);
                         break;
 
                     default:

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 typedef struct virus {
@@ -10,7 +11,7 @@ typedef struct virus {
 
 void PrintHex(FILE* output, char* buffer, int length){
     for(int i = 0; i < length ; i++){
-        fprintf(output, "%02X ", buffer[i]);
+        fprintf(output, "%02X ", (unsigned int)(buffer[i] & 0xFF));
     }
     printf("\n");
 }
@@ -26,6 +27,16 @@ virus* readVirus(FILE* file){
     return v;
 }
 
+void print_virus_name(virus* virus, FILE* output){
+    printf("virus name:\n");
+    for (int i = 0; i < 16; ++i) {
+        if((int)virus->virusName[i] != 0){
+            fprintf(output,"%c", (int)virus->virusName[i]);
+        }
+    }
+    printf("\n");
+}
+
 void printVirus(virus* virus, FILE* output){
     if(virus == NULL){
         printf("VIRUS IS NULLLLLLL");
@@ -33,11 +44,7 @@ void printVirus(virus* virus, FILE* output){
     }
    fprintf(output,"virus size: %d\n", virus->SigSize);
     printf("virus name:\n");
-    for (int i = 0; i < 16; ++i) {
-        if((int)virus->virusName[i] != 0){
-            fprintf(output,"%c", (int)virus->virusName[i]);
-        }
-    }
+    print_virus_name(virus, output);
     printf("\nvirus sig:\n");
     PrintHex(output, (char*)virus->sig, virus->SigSize);
 }
@@ -97,10 +104,48 @@ struct link* load_sigs(FILE* file){
     return virus_link;
 }
 
-struct fun_desc {
-    char *name;
-    void (*fun)(struct link*, FILE*);
-};
+FILE* get_file(){
+    char buffer[100];
+    char fileName[100];
+    printf("Insert file name\n");
+    fgets(buffer, 100, stdin);
+    sscanf(buffer, "%s\n", &fileName);
+    FILE *file = fopen(&fileName, "r");
+    if (file == NULL) {
+        printf("Can't open file in case 1");
+    }else{
+        printf("file was opened successfully");
+    }
+    return file;
+}
+
+void detect_virus(char *buffer, unsigned int size, struct link *virus_link){
+    int counter = 0;
+    virus* v = virus_link->vir;
+    while(counter < size){
+        if(memcmp(v->sig, buffer + counter, v->SigSize) == 0){
+            printf("Virus Detected\nVirus Start Byte: %d\n", counter);
+            print_virus_name(v, stdout);
+            printf("Virus size: %d\n", v->SigSize);
+        }
+        counter++;;
+    }
+}
+
+
+void detect_all_viruses(struct link* virus_list){
+    FILE *suspected_file = get_file();
+    int min_size = 10000;
+    char buffer[min_size];
+    int bytes_read = fread(buffer, 1, min_size, suspected_file);
+    if(bytes_read < min_size){
+        min_size = bytes_read;
+    }
+    while(virus_list != NULL){
+        detect_virus(buffer, min_size, virus_list);
+        virus_list = virus_list->nextVirus;
+    }
+}
 
 
 
@@ -108,42 +153,37 @@ int main(){
 
     char* virus_funcs[] = { "Load signatures",
                                "Print signatures",
-//                               {"Detect viruses", &encrypt},
+                               "Detect viruses",
 //                               {"Fix file", &decrypt},
                                "Quit"
                                };
-
+    int array_len =(*(&virus_funcs + 1) - virus_funcs);
     struct link* virus_list;
     while(1){
-        for(int i = 0; i < (*(&virus_funcs + 1) - virus_funcs); i++){
+        for(int i = 0; i < array_len; i++){
             printf("%d) %s\n", i+1,  virus_funcs[i]);
         }
         printf("Please enter your choice\n");
         char c[10];
         if(fgets(c, 10, stdin) != NULL){
             int index = atoi(c);
-            if(index >= 0 && index <=(*(&virus_funcs + 1) - virus_funcs)-1){
+            if(index >= 0 && index <= array_len-1){
                 printf("With in bound\n");
                 switch (index) {
                     case 1:
-                        char buffer[100];
-                        char fileName[100];
-                        if(fgets(buffer, 100, stdin)!=NULL){
-                            sscanf(buffer, "%s\n", &fileName);
-                            printf("Insert file name\n");
-                            FILE* file = fopen(fileName, "r");
-                            if(file == NULL){
-                                printf("Can't open file in case 1");
-                                break;
-                            }
-                            printf("file was opened successfully");
-                            virus_list = load_sigs(file);
-                            fclose(file);
-                        }
+                        FILE* file = get_file();
+                        char ignore[4];
+                        fread(ignore, 1, 4, file);
+                        virus_list = load_sigs(file);
+                        fclose(file);
                         break;
 
                     case 2:
                         list_print(virus_list, stdout);
+                        break;
+
+                    case 3:
+                        detect_all_viruses(virus_list);
                         break;
 
                     default:
@@ -152,7 +192,7 @@ int main(){
                 }
                 printf("DONE\n");
             }else{
-                if(index != 3){
+                if(index != array_len){
                     printf("Out of bound\n");
                 }
                 break;

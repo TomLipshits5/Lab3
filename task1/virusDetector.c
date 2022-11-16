@@ -43,7 +43,6 @@ void printVirus(virus* virus, FILE* output){
         return;
     }
    fprintf(output,"virus size: %d\n", virus->SigSize);
-    printf("virus name:\n");
     print_virus_name(virus, output);
     printf("\nvirus sig:\n");
     PrintHex(output, (char*)virus->sig, virus->SigSize);
@@ -109,8 +108,8 @@ FILE* get_file(){
     char fileName[100];
     printf("Insert file name\n");
     fgets(buffer, 100, stdin);
-    sscanf(buffer, "%s\n", &fileName);
-    FILE *file = fopen(&fileName, "r");
+    sscanf(buffer, "%s\n", fileName);
+    FILE *file = fopen(fileName, "r");
     if (file == NULL) {
         printf("Can't open file in case 1");
     }else{
@@ -184,8 +183,7 @@ int main(int argc, char** argv){
                 switch (index) {
                     case 1:
                         FILE* file = get_file();
-                        char ignore[4];
-                        fread(ignore, 1, 4, file);
+                        fseek(file, 4, SEEK_SET);
                         virus_list = load_sigs(file);
                         fclose(file);
                         break;
